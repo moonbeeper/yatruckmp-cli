@@ -1,9 +1,6 @@
-use core::alloc;
 use std::{
-    ffi::CString,
     os::windows::ffi::OsStrExt,
     path::{Path, PathBuf},
-    ptr,
 };
 
 use steamworks::{AppId, Client};
@@ -12,16 +9,15 @@ use windows::{
         Foundation::{CloseHandle, HANDLE},
         System::{
             Diagnostics::Debug::WriteProcessMemory,
-            LibraryLoader::{GetModuleHandleA, GetProcAddress, LoadLibraryA},
+            LibraryLoader::{GetModuleHandleA, GetProcAddress},
             Memory::{MEM_COMMIT, MEM_RESERVE, PAGE_READWRITE, VirtualAllocEx},
             Threading::{
-                CREATE_SUSPENDED, CreateProcessA, CreateProcessW, CreateRemoteThread,
-                DETACHED_PROCESS, INFINITE, PROCESS_INFORMATION, ResumeThread, STARTUPINFOA,
-                STARTUPINFOW, WaitForSingleObject,
+                CREATE_SUSPENDED, CreateProcessW, CreateRemoteThread, INFINITE,
+                PROCESS_INFORMATION, ResumeThread, STARTUPINFOW, WaitForSingleObject,
             },
         },
     },
-    core::{PWSTR, s, w},
+    core::{PWSTR, s},
 };
 
 fn main() {
@@ -67,10 +63,8 @@ fn main() {
 
 // your typical remote thread dll or shellcode injection lol
 fn inject_dll(process: HANDLE, dll_path: PathBuf) {
-    let dll_path_str = dll_path.to_str().unwrap();
-
-    let dll_path = CString::new(dll_path_str).unwrap();
-    let dll_path_len = dll_path.as_bytes_with_nul().len();
+    let dll_path: Vec<u16> = dll_path.as_os_str().encode_wide().chain(Some(0)).collect(); // uft16
+    let dll_path_len = dll_path.len() * std::mem::size_of::<u16>();
 
     unsafe {
         let alloc_addr = VirtualAllocEx(
@@ -103,9 +97,9 @@ fn inject_dll(process: HANDLE, dll_path: PathBuf) {
             panic!("failed get kernel handle");
         });
         let load_library_addr =
-            GetProcAddress(kernel_handle, s!("LoadLibraryA")).unwrap_or_else(|| {
+            GetProcAddress(kernel_handle, s!("LoadLibraryW")).unwrap_or_else(|| {
                 CloseHandle(process).unwrap();
-                panic!("failed to get LoadLibraryA addr");
+                panic!("failed to get LoadLibraryW addr");
             });
 
         let remote_thread = CreateRemoteThread(
