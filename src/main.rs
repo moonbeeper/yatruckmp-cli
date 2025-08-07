@@ -1,0 +1,129 @@
+use core::alloc;
+use std::{
+    ffi::CString,
+    os::windows::ffi::OsStrExt,
+    path::{Path, PathBuf},
+    ptr,
+};
+
+use steamworks::{AppId, Client};
+use windows::{
+    Win32::{
+        Foundation::{CloseHandle, HANDLE},
+        System::{
+            Diagnostics::Debug::WriteProcessMemory,
+            LibraryLoader::{GetModuleHandleA, GetProcAddress, LoadLibraryA},
+            Memory::{MEM_COMMIT, MEM_RESERVE, PAGE_READWRITE, VirtualAllocEx},
+            Threading::{
+                CREATE_SUSPENDED, CreateProcessA, CreateProcessW, CreateRemoteThread,
+                DETACHED_PROCESS, INFINITE, PROCESS_INFORMATION, ResumeThread, STARTUPINFOA,
+                STARTUPINFOW, WaitForSingleObject,
+            },
+        },
+    },
+    core::{PWSTR, s, w},
+};
+
+fn main() {
+    let client = Client::init_app(AppId(480)).unwrap(); // app id 480 is the safe bet as its the sdk demo app
+
+    let game_dir = client.apps().app_install_dir(AppId(227300));
+    println!("game_dir: {:?}", game_dir);
+
+    let path = Path::new(&game_dir)
+        .join("bin")
+        .join("win_x64")
+        .join("eurotrucks2.exe");
+    let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect(); // uft16
+
+    let dll_path = Path::new("C:\\Users\\toast\\AppData\\Roaming\\TruckersMP\\installation")
+        .join("core_ets2mp.dll");
+
+    unsafe {
+        std::env::set_var("SteamGameId", "227300");
+        std::env::set_var("SteamAppId", "227300");
+        let mut startup_info: STARTUPINFOW = std::mem::zeroed();
+        startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
+        let mut process_info: PROCESS_INFORMATION = std::mem::zeroed();
+        CreateProcessW(
+            None,
+            Some(PWSTR(path.as_ptr() as *mut u16)),
+            None,
+            None,
+            false,
+            CREATE_SUSPENDED,
+            None,
+            None,
+            &mut startup_info,
+            &mut process_info,
+        )
+        .unwrap();
+
+        inject_dll(process_info.hProcess, dll_path);
+        ResumeThread(process_info.hThread);
+        CloseHandle(process_info.hThread).unwrap();
+    }
+}
+
+// your typical remote thread dll or shellcode injection lol
+fn inject_dll(process: HANDLE, dll_path: PathBuf) {
+    let dll_path_str = dll_path.to_str().unwrap();
+
+    let dll_path = CString::new(dll_path_str).unwrap();
+    let dll_path_len = dll_path.as_bytes_with_nul().len();
+
+    unsafe {
+        let alloc_addr = VirtualAllocEx(
+            process,
+            None,
+            dll_path_len,
+            MEM_COMMIT | MEM_RESERVE,
+            PAGE_READWRITE,
+        );
+
+        if alloc_addr.is_null() {
+            CloseHandle(process).unwrap();
+            panic!("failed to allocate memory in the game process");
+        }
+
+        WriteProcessMemory(
+            process,
+            alloc_addr,
+            dll_path.as_ptr() as *const _,
+            dll_path_len,
+            None,
+        )
+        .unwrap_or_else(|_| {
+            CloseHandle(process).unwrap();
+            panic!("failed to write to game process memory");
+        });
+
+        let kernel_handle = GetModuleHandleA(s!("kernel32.dll")).unwrap_or_else(|_| {
+            CloseHandle(process).unwrap();
+            panic!("failed get kernel handle");
+        });
+        let load_library_addr =
+            GetProcAddress(kernel_handle, s!("LoadLibraryA")).unwrap_or_else(|| {
+                CloseHandle(process).unwrap();
+                panic!("failed to get LoadLibraryA addr");
+            });
+
+        let remote_thread = CreateRemoteThread(
+            process,
+            None,
+            0,
+            // stupid type signature
+            Some(std::mem::transmute(load_library_addr)),
+            Some(alloc_addr),
+            0,
+            None,
+        )
+        .unwrap_or_else(|_| {
+            CloseHandle(process).unwrap();
+            panic!("failed to create remote thread");
+        });
+
+        WaitForSingleObject(remote_thread, INFINITE);
+        CloseHandle(process).unwrap();
+    }
+}
