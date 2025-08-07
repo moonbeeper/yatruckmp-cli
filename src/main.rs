@@ -20,10 +20,47 @@ use windows::{
     core::{PWSTR, s},
 };
 
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum Game {
+    ETS2 = 227300,
+    ATS = 270880,
+    None = 0,
+}
+
+impl From<Game> for AppId {
+    fn from(value: Game) -> Self {
+        AppId(value as u32)
+    }
+}
+
+fn get_game(client: &Client) -> Game {
+    if client.apps().is_subscribed_app(Game::ETS2.into()) {
+        if !client.apps().is_app_installed(Game::ETS2.into()) {
+            panic!("ETS2 is not installed");
+        }
+
+        return Game::ETS2;
+    } else if client.apps().is_subscribed_app(Game::ATS.into()) {
+        if !client.apps().is_app_installed(Game::ATS.into()) {
+            panic!("ATS is not installed");
+        }
+
+        return Game::ATS;
+    }
+
+    return Game::None;
+}
+
 fn main() {
     let client = Client::init_app(AppId(480)).unwrap(); // app id 480 is the safe bet as its the sdk demo app
 
-    let game_dir = client.apps().app_install_dir(AppId(227300));
+    let game = get_game(&client);
+    // should be maybe a result instead.
+    if game == Game::None {
+        panic!("nope");
+    }
+
+    let game_dir = client.apps().app_install_dir(game.into());
     println!("game_dir: {:?}", game_dir);
 
     let path = Path::new(&game_dir)
@@ -36,11 +73,13 @@ fn main() {
         .join("core_ets2mp.dll");
 
     unsafe {
-        std::env::set_var("SteamGameId", "227300");
-        std::env::set_var("SteamAppId", "227300");
+        std::env::set_var("SteamGameId", format!("{}", game as u32));
+        std::env::set_var("SteamAppId", format!("{}", game as u32));
+
         let mut startup_info: STARTUPINFOW = std::mem::zeroed();
         startup_info.cb = std::mem::size_of::<STARTUPINFOW>() as u32;
         let mut process_info: PROCESS_INFORMATION = std::mem::zeroed();
+
         CreateProcessW(
             None,
             Some(PWSTR(path.as_ptr() as *mut u16)),
@@ -50,7 +89,7 @@ fn main() {
             CREATE_SUSPENDED,
             None,
             None,
-            &mut startup_info,
+            &startup_info,
             &mut process_info,
         )
         .unwrap();
