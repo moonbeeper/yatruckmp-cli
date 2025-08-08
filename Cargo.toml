@@ -1,9 +1,16 @@
 [package]
-name = "truck-cli"
+name = "truckersmp-cli"
 authors = ["moonbeeper <moonbeeper@duck.com>"]
 description = "a pretty simple cli for launching truckersmp compatible games"
+repository = "https://github.com/moonbeeper/yatruckmp-cli"
 version = "0.1.0"
 edition = "2024"
+
+[package.metadata.wix]
+upgrade-guid = "3A41041F-FBFB-40B8-8EE7-457F4BD5C3FA"
+path-guid = "728E7B5B-7294-4DC0-837D-34BCCFE79DDC"
+license = false
+eula = false
 
 [dependencies]
 clap = { version = "4.5.43", features = ["cargo", "derive"] }
@@ -29,7 +36,7 @@ windows = { version = "0.61.3", features = [
     "Win32_System_Threading",
 ] }
 
-[profile.release-lto]
+[profile.dist]
 inherits = "release"
 lto = "fat"
 debug = false
