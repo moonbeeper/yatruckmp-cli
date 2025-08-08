@@ -60,9 +60,6 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - name: Download steam_api64.dll to the root of the repo
-        run: |
-          curl -L "https://github.com/Noxime/steamworks-rs/raw/9841b63357c9b97508a567f207f03ca7c6d17e8a/steamworks-sys/lib/steam/redistributable_bin/win64/steam_api64.dll" -o steam_api64.dll
       - name: Install dist
         # we specify bash to get pipefail; it guards against the `curl` command
         # failing. otherwise `sh` won't catch that `curl` returned non-0
@@ -123,6 +120,9 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
+      - name: Download steam_api64.dll to the root of the repo
+        run: |
+          curl -L "https://github.com/Noxime/steamworks-rs/raw/9841b63357c9b97508a567f207f03ca7c6d17e8a/steamworks-sys/lib/steam/redistributable_bin/win64/steam_api64.dll" -o steam_api64.dll
       - name: Install Rust non-interactively if not already installed
         if: ${{ matrix.container }}
         run: |
