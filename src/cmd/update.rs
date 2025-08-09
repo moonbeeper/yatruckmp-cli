@@ -1,9 +1,4 @@
-use std::{
-    ffi::OsStr,
-    fmt::Write,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{ffi::OsStr, fmt::Write, path::PathBuf, sync::Arc};
 
 use clap::crate_version;
 use futures_util::StreamExt as _;
@@ -49,7 +44,13 @@ impl Run for Update {
             get_available_game(&STEAMWORKS_CLIENT)
         }?;
 
-        let content_dir = Path::new("test/").to_path_buf(); // TODO: make this configurable
+        let current_exe_path = std::env::current_exe()?;
+        let current_exe_path = current_exe_path
+            .parent()
+            .expect("Executable must be in some directory")
+            .canonicalize()?;
+
+        let content_dir = current_exe_path.join("content").to_path_buf(); // TODO: make this configurable
         if self.clean {
             fs::remove_dir_all(&content_dir).await?;
             fs::create_dir_all(&content_dir).await?;
@@ -167,6 +168,10 @@ async fn download_files(
     let concurrency = Arc::new(Semaphore::new(8)); // todo: clap config
     let progress_bars = MultiProgress::new();
 
+    let main_pb = progress_bars.add(ProgressBar::new(content_files.len() as u64));
+    main_pb.set_style(PROGRESS_BAR_TEMPLATE.clone());
+    main_pb.tick();
+
     let content_dir = content_dir
         .canonicalize()
         .expect("failed horribly to canonicalize content dir");
@@ -178,6 +183,7 @@ async fn download_files(
         let concurrency = concurrency.clone();
         let url = format!("{DOWNLOAD_URL}{}", file.file_path);
         let path = content_dir.join(&file.file_path);
+        let main_pb = main_pb.clone();
 
         tokio::spawn(async move {
             let _ticket = concurrency.acquire().await?;
@@ -207,6 +213,8 @@ async fn download_files(
 
             file.flush().await?;
             progress_bar.finish_and_clear();
+
+            main_pb.inc(1);
             Ok::<(), Error>(())
         })
     });

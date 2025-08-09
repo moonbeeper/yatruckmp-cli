@@ -35,7 +35,7 @@ pub trait Run {
 }
 
 #[derive(Debug, Parser)]
-#[clap(version, about = crate_description!(), author, propagate_version = true, help_template = HelpTemplate)]
+#[clap(version, about, author, propagate_version = true, help_template = HelpTemplate)]
 pub enum Cmd {
     Update(Update),
     Run(RunGame),

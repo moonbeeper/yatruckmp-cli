@@ -1,7 +1,4 @@
-use std::{
-    os::windows::ffi::OsStrExt as _,
-    path::{Path, PathBuf},
-};
+use std::{os::windows::ffi::OsStrExt as _, path::PathBuf};
 
 use windows::{
     Win32::{
@@ -37,7 +34,13 @@ impl Run for RunGame {
         let game_path = get_game_path(&STEAMWORKS_CLIENT, game)?;
         let path: Vec<u16> = game_path.as_os_str().encode_wide().chain(Some(0)).collect(); // uft16
 
-        let content_dir = Path::new("test/").to_path_buf(); // TODO: make this configurable
+        let current_exe_path = std::env::current_exe()?;
+        let current_exe_path = current_exe_path
+            .parent()
+            .expect("Executable must be in some directory")
+            .canonicalize()?;
+
+        let content_dir = current_exe_path.join("content").to_path_buf(); // TODO: make this configurable
         let dll_path = content_dir.join(game.dll());
 
         // TODO: I shouldn't be doing this here.
