@@ -1,6 +1,7 @@
 use std::{io, io::Write as _, process::ExitCode};
 
 use clap::Parser;
+use color_print::cwriteln;
 use once_cell::sync::Lazy;
 use steamworks::{AppId, Client};
 
@@ -20,7 +21,8 @@ async fn main() -> ExitCode {
     match Cmd::parse().run().await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            _ = writeln!(io::stderr(), "Error: {e:}");
+            // _ = writeln!(io::stderr(), "Error: {e:}");
+            _ = cwriteln!(io::stderr(), "<red,bold>error</>: {e:}");
             ExitCode::FAILURE
         }
     }

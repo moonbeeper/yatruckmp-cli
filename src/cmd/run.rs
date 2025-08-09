@@ -1,5 +1,7 @@
 use std::{os::windows::ffi::OsStrExt as _, path::PathBuf};
 
+use clap::crate_name;
+use dirs::data_dir;
 use windows::{
     Win32::{
         Foundation::{CloseHandle, HANDLE},
@@ -34,13 +36,11 @@ impl Run for RunGame {
         let game_path = get_game_path(&STEAMWORKS_CLIENT, game)?;
         let path: Vec<u16> = game_path.as_os_str().encode_wide().chain(Some(0)).collect(); // uft16
 
-        let current_exe_path = std::env::current_exe()?;
-        let current_exe_path = current_exe_path
-            .parent()
-            .expect("Executable must be in some directory")
-            .canonicalize()?;
-
-        let content_dir = current_exe_path.join("content").to_path_buf(); // TODO: make this configurable
+        let content_dir = data_dir()
+            .ok_or_else(|| Error::NoAppdataPath)?
+            .join(crate_name!())
+            .join("content")
+            .to_path_buf(); // TODO: make this configurable
         let dll_path = content_dir.join(game.dll());
 
         // TODO: I shouldn't be doing this here.

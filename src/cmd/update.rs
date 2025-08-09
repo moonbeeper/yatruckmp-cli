@@ -1,6 +1,7 @@
 use std::{ffi::OsStr, fmt::Write, path::PathBuf, sync::Arc};
 
-use clap::crate_version;
+use clap::{crate_name, crate_version};
+use dirs::data_dir;
 use futures_util::StreamExt as _;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use once_cell::sync::Lazy;
@@ -44,19 +45,26 @@ impl Run for Update {
             get_available_game(&STEAMWORKS_CLIENT)
         }?;
 
-        let current_exe_path = std::env::current_exe()?;
-        let current_exe_path = current_exe_path
-            .parent()
-            .expect("Executable must be in some directory")
-            .canonicalize()?;
+        let content_dir = data_dir()
+            .ok_or_else(|| Error::NoAppdataPath)?
+            .join(crate_name!())
+            .join("content")
+            .to_path_buf(); // TODO: make this configurable
 
-        let content_dir = current_exe_path.join("content").to_path_buf(); // TODO: make this configurable
-        if self.clean {
+        // I could get the parent folder but that opens the risk of me accidentally deleting the whole system32 folder lol.
+        if self.clean && content_dir.exists() {
             fs::remove_dir_all(&content_dir).await?;
             fs::create_dir_all(&content_dir).await?;
         }
 
-        update_files(&reqwest_client, content_files, &game, content_dir).await?;
+        update_files(
+            &reqwest_client,
+            content_files,
+            &game,
+            content_dir,
+            self.clean,
+        )
+        .await?;
 
         Ok(())
     }
@@ -143,6 +151,7 @@ async fn update_files(
     content_files: ContentFiles,
     game: &Game,
     content_dir: PathBuf,
+    clean: bool,
 ) -> TResult<()> {
     let mut files = content_files.shared.clone();
     match game {
@@ -152,7 +161,7 @@ async fn update_files(
 
     println!("updating files for game: {:?}", game);
 
-    if !content_dir.exists() {
+    if !content_dir.exists() || clean {
         tokio::fs::create_dir_all(&content_dir).await?;
         verify_and_download(&client, &files, content_dir, true).await
     } else {

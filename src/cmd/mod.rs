@@ -1,7 +1,6 @@
 use clap::{
     Parser,
     builder::{IntoResettable, StyledStr},
-    crate_description,
 };
 
 use crate::{errors::TResult, game::Game};

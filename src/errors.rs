@@ -35,6 +35,8 @@ pub enum Error {
     SemaphoreAcquireError(#[from] tokio::sync::AcquireError),
     #[error("Couldn't join a Tokio task... smh: {0}")]
     TokioJoinError(#[from] tokio::task::JoinError),
+    #[error("Somehow we couldn't find your roaming AppData folder... how?")]
+    NoAppdataPath,
 }
 
 impl From<SteamAPIInitError> for Error {
