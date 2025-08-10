@@ -16,7 +16,7 @@ use tokio::{
 use crate::{
     cmd::{Run, Update},
     errors::{Error, TResult},
-    game::{Game, get_available_game, get_specific_game, get_steamworks_client},
+    game::{Game, get_available_games, get_specific_game, get_steamworks_client},
 };
 
 const UPDATE_URL: &str = "https://update.ets2mp.com/files.json";
@@ -50,7 +50,7 @@ impl Run for Update {
         let game = if let Some(game) = self.game {
             get_specific_game(&steamworks, game)
         } else {
-            get_available_game(&steamworks)
+            get_available_games(&steamworks)
         }?;
 
         let content_dir = data_dir()

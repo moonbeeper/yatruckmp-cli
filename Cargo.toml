@@ -3,7 +3,7 @@ name = "truckersmp-cli"
 authors = ["moonbeeper <moonbeeper@duck.com>"]
 description = "a pretty simple cli for launching truckersmp compatible games"
 repository = "https://github.com/moonbeeper/yatruckmp-cli"
-version = "0.3.0"
+version = "0.3.1"
 edition = "2024"
 
 [package.metadata.wix]

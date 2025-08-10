@@ -1,3 +1,5 @@
+use clap::CommandFactory as _;
+
 use crate::{
     cmd::{GameCmd, GameCommand, Run},
     errors::TResult,
@@ -11,7 +13,10 @@ impl Run for GameCmd {
             Some(cmd) => match cmd {
                 GameCommand::Servers(cmd) => cmd.run().await?,
             },
-            None => {}
+            None => {
+                let mut cmd = GameCmd::command();
+                cmd.print_help()?;
+            }
         }
         Ok(())
     }

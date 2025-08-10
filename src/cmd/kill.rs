@@ -3,7 +3,7 @@ use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
 use crate::{
     cmd::{Kill, Run},
     errors::TResult,
-    game::{get_available_game, get_game_path, get_specific_game, get_steamworks_client},
+    game::{get_available_games, get_game_path, get_specific_game, get_steamworks_client},
 };
 
 impl Run for Kill {
@@ -13,7 +13,7 @@ impl Run for Kill {
         let game = if let Some(game) = self.game {
             get_specific_game(&steamworks, game)
         } else {
-            get_available_game(&steamworks)
+            get_available_games(&steamworks)
         }?;
 
         let sysinfo = System::new_with_specifics(

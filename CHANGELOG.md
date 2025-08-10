@@ -1,3 +1,10 @@
+# Version 0.3.1 (2025/08/10)
+
+Simple release to fix just two error messages and the `get_games` method.
+
+- Modified the `get_games` method to allow to return the `GamesNotOwned` error.
+- Fixed the wording of the `UnknownSteamworksError` error.
+
 # Version 0.3.0 (2025/08/10)
 
 Added new features woohoo.

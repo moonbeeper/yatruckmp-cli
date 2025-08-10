@@ -13,16 +13,18 @@ pub enum Error {
         "Steam seems to be running an outdated version. Are you sure you have the LATEST version?"
     )]
     SteamIsOutdated,
-    #[error("Unknown Steamworks error: {0}")]
+    #[error("Yikes! The Steam API is acting up: {0}")]
     UnknownSteamworksError(#[from] SteamError),
     #[error("{0:?} is not installed! How do you expect to play it!?")]
     SpecificGameNotInstalled(Game),
-    #[error("Seems like you don't own {0:?} on steam")]
+    #[error("Seems like you don't own {0:?} on Steam")]
     SpecificGameNotOwned(Game),
     #[error("Neither ETS2 nor ATS are installed")]
     GamesNotInstalled,
-    // #[error("Seems like you don't own neither ETS2 or ATS")]
-    // GamesNotOwned,
+    #[error(
+        "Seems like you don't own neither ETS2 or ATS on Steam... How do you expect to play them?"
+    )]
+    GamesNotOwned,
     #[error("Sadly, we failed to launch game process in a suspended state")]
     FailedGameLaunch,
     #[error("Crap! DLL injection has failed: {0}")]

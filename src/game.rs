@@ -42,7 +42,7 @@ struct AvailableGames {
     ats: bool,
 }
 
-pub fn get_available_game(client: &Client) -> TResult<Game> {
+pub fn get_available_games(client: &Client) -> TResult<Game> {
     let available_games = get_games(client)?;
 
     match available_games {
@@ -66,24 +66,31 @@ pub fn get_specific_game(client: &Client, game: Game) -> TResult<Game> {
 
 fn get_games(client: &Client) -> TResult<AvailableGames> {
     let mut result = AvailableGames::default();
-    let mut counter = 0;
+    let mut owned_not_installed = 0;
+    let mut owned = 0;
     if client.apps().is_subscribed_app(Game::ETS2.into()) {
+        owned += 1;
         if client.apps().is_app_installed(Game::ETS2.into()) {
             result.ets2 = true;
         } else {
-            counter += 1;
+            owned_not_installed += 1;
         }
     }
     if client.apps().is_subscribed_app(Game::ATS.into()) {
+        owned += 1;
         if client.apps().is_app_installed(Game::ATS.into()) {
             result.ats = true;
         } else {
-            counter += 1;
+            owned_not_installed += 1;
         }
     }
 
-    if counter == 2 {
+    if owned_not_installed == 2 {
         return Err(Error::GamesNotInstalled);
+    }
+
+    if owned == 0 {
+        return Err(Error::GamesNotOwned);
     }
 
     Ok(result)
