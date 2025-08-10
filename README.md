@@ -4,7 +4,7 @@ Another simple launcher for the games that are supported by [TruckersMP](https:/
 
 ## Installation
 
-Just grab the executable in its zip or msi from the [latest release](https://github.com/moonbeeper/yatruckmp-cli/releases/latest) page.
+Just grab the executable in a zip or msi from the latest [release](https://github.com/moonbeeper/yatruckmp-cli/releases/latest).
 
 ## Usage
 
@@ -18,3 +18,9 @@ truckersmp-cli kill   # optionally --game <ets2 or ats>
 ```
 
 That's it. Quite simple isn't it?
+
+**Checkout** also the help of each command to see what they can do.
+
+```sh
+truckersmp-cli run -h # or --help
+```

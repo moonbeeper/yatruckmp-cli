@@ -1,3 +1,13 @@
+# Version 0.3.0 (2025/08/10)
+
+Added new features woohoo.
+
+- Added a command to get the current mod version with the supported game versions.
+- Added a command to get the current game server info.
+- Fixed a bug where the downloads where actually not being parallelized thanks to my stupidity lol. Now it's fixed and actually faster (who knew?).
+
+You should always checkout the help of each command to see what they can do.
+
 # Version 0.2.0 (2025/08/10)
 
 Added the features that I didn't add in the MVP version and fixed a little bug.

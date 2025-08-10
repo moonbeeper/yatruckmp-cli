@@ -8,7 +8,7 @@ use crate::errors::{Error, TResult};
 
 static STEAMWORKS_CLIENT: OnceCell<Client> = OnceCell::new();
 
-#[derive(PartialEq, Eq, Clone, Copy, Debug, ValueEnum)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug, ValueEnum, serde::Deserialize)]
 pub enum Game {
     ETS2 = 227300,
     ATS = 270880,

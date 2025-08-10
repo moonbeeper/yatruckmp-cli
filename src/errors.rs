@@ -41,6 +41,8 @@ pub enum Error {
     NoAppdataPath,
     #[error("Somehow we couldn't find the {0:?} executable in its directory")]
     GameExecutableNotFound(Game),
+    #[error("Sadly the TruckersMP API errored out while trying to fetch data from it")]
+    TruckersMPError,
 }
 
 impl From<SteamAPIInitError> for Error {

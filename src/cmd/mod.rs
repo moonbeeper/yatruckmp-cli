@@ -1,11 +1,13 @@
 use clap::{
-    Parser,
+    Parser, Subcommand,
     builder::{IntoResettable, StyledStr},
 };
 
-use crate::{errors::TResult, game::Game};
+use crate::{cmd::game::server::ServerInfoType, errors::TResult, game::Game};
 
+mod game;
 mod kill;
+mod mod_version;
 mod run;
 mod update;
 
@@ -39,6 +41,8 @@ pub enum Cmd {
     Update(Update),
     Run(RunGame),
     Kill(Kill),
+    Version(ModVersion),
+    Game(GameCmd),
 }
 
 impl Run for Cmd {
@@ -47,6 +51,8 @@ impl Run for Cmd {
             Cmd::Update(update) => update.run().await,
             Cmd::Run(run) => run.run().await,
             Cmd::Kill(kill) => kill.run().await,
+            Cmd::Version(cmd) => cmd.run().await,
+            Cmd::Game(cmd) => cmd.run().await,
         }
     }
 }
@@ -95,4 +101,46 @@ pub struct Kill {
     /// The game to be killed
     #[clap(short, long, value_enum)]
     game: Option<Game>,
+}
+
+/// Get the current mod version with the supported game versions
+#[derive(Debug, Parser)]
+#[clap(author, help_template = HelpTemplate)]
+pub struct ModVersion;
+
+/// Get game related information.
+#[derive(Debug, Parser)]
+#[clap(author, help_template = HelpTemplate)]
+pub struct GameCmd {
+    #[clap(subcommand)]
+    pub cmd: Option<GameCommand>,
+}
+
+#[derive(Debug, Subcommand, Clone)]
+pub enum GameCommand {
+    Servers(ServerInfo),
+}
+
+/// Get the current server info
+#[derive(Debug, Parser, Clone)]
+#[clap(author, help_template = HelpTemplate)]
+pub struct ServerInfo {
+    /// The game to get the server info for
+    #[clap(short, long, value_enum)]
+    game: Option<Game>,
+    /// The server type to get specifically info for
+    #[clap(short = 't', long = "type", value_enum, default_values_t = [ServerInfoType::All])]
+    server_type: Vec<ServerInfoType>,
+
+    /// Whether to show the ping to the server
+    #[clap(short, long, default_value_t = false)]
+    ping: bool,
+
+    /// Whether to show the server's speed limit
+    #[clap(short, long, default_value_t = false)]
+    speed_limit: bool,
+
+    /// Whether to show additional info about the server
+    #[clap(short, long, default_value_t = false)]
+    additional: bool,
 }

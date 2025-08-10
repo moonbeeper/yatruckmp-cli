@@ -2,7 +2,7 @@ use std::{ffi::OsStr, fmt::Write, path::PathBuf, sync::Arc, u8};
 
 use clap::{crate_name, crate_version};
 use dirs::data_dir;
-use futures_util::StreamExt as _;
+use futures_util::{StreamExt as _, future::join_all};
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use once_cell::sync::Lazy;
 use reqwest_middleware::ClientWithMiddleware;
@@ -219,9 +219,10 @@ async fn download_files(
         })
     });
 
-    for handle in handles {
-        handle.await??;
-    }
+    join_all(handles)
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
 
     main_pb.finish_and_clear();
     println!("Finished downloading files");
@@ -308,9 +309,11 @@ async fn verify_and_download(
             })
         });
 
-        for handle in handles {
-            handle.await??;
-        }
+        join_all(handles)
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+
         progress_bar.finish_and_clear();
 
         let mut failed_files = failed_files.lock().await;

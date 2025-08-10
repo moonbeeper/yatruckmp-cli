@@ -15,7 +15,6 @@ async fn main() -> ExitCode {
     match Cmd::parse().run().await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
-            // _ = writeln!(io::stderr(), "Error: {e:}");
             _ = cwriteln!(io::stderr(), "<red,bold>error</>: {e:}");
             ExitCode::FAILURE
         }
