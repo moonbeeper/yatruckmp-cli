@@ -1,18 +1,19 @@
 use sysinfo::{ProcessRefreshKind, RefreshKind, System, UpdateKind};
 
 use crate::{
-    STEAMWORKS_CLIENT,
     cmd::{Kill, Run},
     errors::TResult,
-    game::{get_available_game, get_game_path, get_specific_game},
+    game::{get_available_game, get_game_path, get_specific_game, get_steamworks_client},
 };
 
 impl Run for Kill {
     async fn run(&self) -> TResult<()> {
+        let steamworks = get_steamworks_client()?;
+
         let game = if let Some(game) = self.game {
-            get_specific_game(&STEAMWORKS_CLIENT, game)
+            get_specific_game(&steamworks, game)
         } else {
-            get_available_game(&STEAMWORKS_CLIENT)
+            get_available_game(&steamworks)
         }?;
 
         let sysinfo = System::new_with_specifics(
@@ -25,7 +26,7 @@ impl Run for Kill {
         //     ProcessRefreshKind::nothing().with_exe(UpdateKind::OnlyIfNotSet),
         // );
 
-        let game_path = get_game_path(&STEAMWORKS_CLIENT, game)?;
+        let game_path = get_game_path(&steamworks, game)?;
         println!("game_path: {:?}", game_path);
 
         for (_, process) in sysinfo.processes() {

@@ -1,9 +1,12 @@
 use std::path::{Path, PathBuf};
 
 use clap::ValueEnum;
+use once_cell::sync::OnceCell;
 use steamworks::{AppId, Client};
 
 use crate::errors::{Error, TResult};
+
+static STEAMWORKS_CLIENT: OnceCell<Client> = OnceCell::new();
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug, ValueEnum)]
 pub enum Game {
@@ -88,10 +91,19 @@ fn get_games(client: &Client) -> TResult<AvailableGames> {
 
 pub fn get_game_path(client: &Client, game: Game) -> TResult<PathBuf> {
     let game_dir = client.apps().app_install_dir(game.into());
-    println!("game_dir: {:?}", game_dir);
-
-    Ok(Path::new(&game_dir)
+    let game_dir = Path::new(&game_dir)
         .join("bin")
         .join("win_x64")
-        .join(game.exe()))
+        .join(game.exe());
+
+    if !game_dir.exists() {
+        return Err(Error::GameExecutableNotFound(game));
+    }
+
+    Ok(game_dir)
+}
+
+pub fn get_steamworks_client() -> TResult<&'static Client> {
+    // app id 480 is the safe bet as its the sdk demo app
+    STEAMWORKS_CLIENT.get_or_try_init(|| Ok(Client::init_app(AppId(480)).map_err(Error::from)?))
 }

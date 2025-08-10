@@ -28,7 +28,9 @@ pub enum Error {
     #[error("Crap! DLL injection has failed: {0}")]
     FailedInjectingDLL(String),
     #[error("Our reqwest client has gone crazy and failed with: {0}")]
-    ReqwestClientError(#[from] reqwest::Error),
+    ReqwestMiddlewareClientError(#[from] reqwest_middleware::Error),
+    #[error("Our reqwest client has gone crazy and failed with: {0}")]
+    ReqwestError(#[from] reqwest::Error),
     #[error("IO error: {0}")]
     IOError(#[from] std::io::Error),
     #[error("Somehow we failed to adquire a semaphore ticket to work on download jobs")]
@@ -37,6 +39,8 @@ pub enum Error {
     TokioJoinError(#[from] tokio::task::JoinError),
     #[error("Somehow we couldn't find your roaming AppData folder... how?")]
     NoAppdataPath,
+    #[error("Somehow we couldn't find the {0:?} executable in its directory")]
+    GameExecutableNotFound(Game),
 }
 
 impl From<SteamAPIInitError> for Error {
