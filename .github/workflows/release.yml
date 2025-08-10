@@ -112,7 +112,12 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       BUILD_MANIFEST_NAME: target/distrib/${{ join(matrix.targets, '-') }}-dist-manifest.json
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: "sccache"
+
     steps:
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: enable windows longpaths
         run: |
           git config --global core.longpaths true
@@ -123,13 +128,15 @@ jobs:
       - name: Download steam_api64.dll to the root of the repo
         run: |
           curl -L "https://github.com/Noxime/steamworks-rs/raw/9841b63357c9b97508a567f207f03ca7c6d17e8a/steamworks-sys/lib/steam/redistributable_bin/win64/steam_api64.dll" -o steam_api64.dll
-      - name: Install Rust non-interactively if not already installed
-        if: ${{ matrix.container }}
-        run: |
-          if ! command -v cargo > /dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-            echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-          fi
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      # - name: Install Rust non-interactively if not already installed
+      #   if: ${{ matrix.container }}
+      #   run: |
+      #     if ! command -v cargo > /dev/null 2>&1; then
+      #       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+      #       echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+      #     fi
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
