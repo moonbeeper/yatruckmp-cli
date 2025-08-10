@@ -52,7 +52,7 @@ impl Run for Cmd {
 }
 
 /// Update the TruckersMP mod files
-#[derive(Debug, Parser)]
+#[derive(Debug, Parser, Default)]
 #[clap(author, help_template = HelpTemplate)]
 pub struct Update {
     /// The game to be updated
@@ -62,13 +62,18 @@ pub struct Update {
     /// Whether to clean the mod files directory before updating
     #[clap(short, long, default_value_t = false)]
     clean: bool,
-    // /// Whether to forcefully update the mod files even if they are already up to date
-    // #[clap(short, long, default_value_t = false)]
-    // force: bool,
 
-    // /// Whether to verify the mod files after updating them
-    // #[clap(short, long, default_value_t = false)]
-    // verify: bool,
+    /// Whether to not verify the mod files after updating them
+    #[clap(short = 'v', long, default_value_t = false)]
+    no_verify: bool,
+
+    #[clap(short, long, default_value_t = false)]
+    /// Whether to not retry failed downloads.
+    no_retry: bool,
+
+    /// The number of retries to do before giving up on downloading a file.
+    #[clap(short, long, default_value_t = 3)]
+    retry_count: u32,
 }
 
 /// Run the TruckersMP mod for the optionally specified game
@@ -78,9 +83,9 @@ pub struct RunGame {
     /// The game to be played
     #[clap(short, long, value_enum)]
     game: Option<Game>,
-    // /// Whether to verify the mod files before running the game
-    // #[clap(short, long, default_value_t = false)]
-    // verify: bool,
+    /// Whether to not verify the mod files before running the game
+    #[clap(short = 'v', long, default_value_t = false)]
+    no_verify: bool,
 }
 
 /// Kill a game process if its running

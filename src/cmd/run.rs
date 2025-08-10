@@ -19,21 +19,22 @@ use windows::{
 };
 
 use crate::{
-    STEAMWORKS_CLIENT,
     cmd::{Run, RunGame, Update},
     errors::{Error, TResult},
-    game::{get_available_game, get_game_path, get_specific_game},
+    game::{get_available_game, get_game_path, get_specific_game, get_steamworks_client},
 };
 
 impl Run for RunGame {
     async fn run(&self) -> crate::errors::TResult<()> {
+        let steamworks = get_steamworks_client()?;
+
         let game = if let Some(game) = self.game {
-            get_specific_game(&STEAMWORKS_CLIENT, game)
+            get_specific_game(&steamworks, game)
         } else {
-            get_available_game(&STEAMWORKS_CLIENT)
+            get_available_game(&steamworks)
         }?;
 
-        let game_path = get_game_path(&STEAMWORKS_CLIENT, game)?;
+        let game_path = get_game_path(&steamworks, game)?;
         let path: Vec<u16> = game_path.as_os_str().encode_wide().chain(Some(0)).collect(); // uft16
 
         let content_dir = data_dir()
@@ -43,15 +44,22 @@ impl Run for RunGame {
             .to_path_buf(); // TODO: make this configurable
         let dll_path = content_dir.join(game.dll());
 
-        // TODO: I shouldn't be doing this here.
-        Update {
-            clean: false,
-            game: Some(game),
+        if !self.no_verify {
+            Update {
+                game: Some(game),
+                ..Update::default()
+            }
+            .run()
+            .await?;
         }
-        .run()
-        .await?;
 
-        println!("launching game");
+        if !dll_path.exists() {
+            return Err(Error::FailedInjectingDLL(
+                "failed to find the mod's dll file, you might want to update the mod files".into(),
+            ));
+        }
+
+        println!("Launching {:?}!", game);
         unsafe {
             std::env::set_var("SteamGameId", format!("{}", game as u32));
             std::env::set_var("SteamAppId", format!("{}", game as u32));

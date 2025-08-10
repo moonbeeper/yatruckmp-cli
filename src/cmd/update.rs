@@ -1,10 +1,12 @@
-use std::{ffi::OsStr, fmt::Write, path::PathBuf, sync::Arc};
+use std::{ffi::OsStr, fmt::Write, path::PathBuf, sync::Arc, u8};
 
 use clap::{crate_name, crate_version};
 use dirs::data_dir;
 use futures_util::StreamExt as _;
 use indicatif::{MultiProgress, ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
 use once_cell::sync::Lazy;
+use reqwest_middleware::ClientWithMiddleware;
+use reqwest_retry::{RetryTransientMiddleware, policies::ExponentialBackoff};
 use tokio::{
     fs,
     io::{AsyncReadExt as _, AsyncWriteExt as _, BufReader},
@@ -12,10 +14,9 @@ use tokio::{
 };
 
 use crate::{
-    STEAMWORKS_CLIENT,
     cmd::{Run, Update},
     errors::{Error, TResult},
-    game::{Game, get_available_game, get_specific_game},
+    game::{Game, get_available_game, get_specific_game, get_steamworks_client},
 };
 
 const UPDATE_URL: &str = "https://update.ets2mp.com/files.json";
@@ -32,17 +33,24 @@ static PROGRESS_BAR_TEMPLATE: Lazy<ProgressStyle> = Lazy::new(|| {
 
 impl Run for Update {
     async fn run(&self) -> crate::errors::TResult<()> {
-        println!("updating TruckersMP mod files");
+        let steamworks = get_steamworks_client()?;
 
+        let reqwest_retry_policy =
+            ExponentialBackoff::builder().build_with_max_retries(self.retry_count);
         let reqwest_client = reqwest::Client::builder()
             .user_agent(format!("Yet Another TruckersMP Cli/{:?}", crate_version!()))
             .build()?;
+        let reqwest_client = reqwest_middleware::ClientBuilder::new(reqwest_client)
+            .with(RetryTransientMiddleware::new_with_policy(
+                reqwest_retry_policy,
+            ))
+            .build();
         let content_files = get_content_files(&reqwest_client).await?;
 
         let game = if let Some(game) = self.game {
-            get_specific_game(&STEAMWORKS_CLIENT, game)
+            get_specific_game(&steamworks, game)
         } else {
-            get_available_game(&STEAMWORKS_CLIENT)
+            get_available_game(&steamworks)
         }?;
 
         let content_dir = data_dir()
@@ -57,14 +65,20 @@ impl Run for Update {
             fs::create_dir_all(&content_dir).await?;
         }
 
-        update_files(
-            &reqwest_client,
-            content_files,
-            &game,
-            content_dir,
-            self.clean,
-        )
-        .await?;
+        let mut files = content_files.shared.clone();
+        match game {
+            Game::ETS2 => files.extend(content_files.ets2),
+            Game::ATS => files.extend(content_files.ats),
+        }
+
+        println!("Updating TruckersMP mod files for {:?}", game);
+
+        if !content_dir.exists() || self.clean {
+            tokio::fs::create_dir_all(&content_dir).await?;
+            verify_and_download(&reqwest_client, &files, content_dir, true, self.no_verify).await?
+        } else {
+            verify_and_download(&reqwest_client, &files, content_dir, false, self.no_verify).await?
+        }
 
         Ok(())
     }
@@ -140,37 +154,14 @@ enum RawContentType {
     System,
 }
 
-async fn get_content_files(client: &reqwest::Client) -> TResult<ContentFiles> {
+async fn get_content_files(client: &ClientWithMiddleware) -> TResult<ContentFiles> {
     let raw_content_files: RawContentFiles = client.get(UPDATE_URL).send().await?.json().await?;
 
     Ok(ContentFiles::from(raw_content_files))
 }
 
-async fn update_files(
-    client: &reqwest::Client,
-    content_files: ContentFiles,
-    game: &Game,
-    content_dir: PathBuf,
-    clean: bool,
-) -> TResult<()> {
-    let mut files = content_files.shared.clone();
-    match game {
-        Game::ETS2 => files.extend(content_files.ets2),
-        Game::ATS => files.extend(content_files.ats),
-    }
-
-    println!("updating files for game: {:?}", game);
-
-    if !content_dir.exists() || clean {
-        tokio::fs::create_dir_all(&content_dir).await?;
-        verify_and_download(&client, &files, content_dir, true).await
-    } else {
-        verify_and_download(&client, &files, content_dir, false).await
-    }
-}
-
 async fn download_files(
-    client: &reqwest::Client,
+    client: &ClientWithMiddleware,
     content_files: &Vec<ContentFile>,
     content_dir: &PathBuf,
 ) -> TResult<()> {
@@ -183,7 +174,7 @@ async fn download_files(
 
     let content_dir = content_dir
         .canonicalize()
-        .expect("failed horribly to canonicalize content dir");
+        .expect("Failed horribly to canonicalize content dir");
 
     let handles = content_files.into_iter().map(|file| {
         let progress_bar = progress_bars.clone();
@@ -232,6 +223,9 @@ async fn download_files(
         handle.await??;
     }
 
+    main_pb.finish_and_clear();
+    println!("Finished downloading files");
+
     Ok(())
 }
 
@@ -265,28 +259,34 @@ async fn check_file_hash(content_file: &ContentFile, file_path: &PathBuf) -> TRe
 }
 
 async fn verify_and_download(
-    client: &reqwest::Client,
+    client: &ClientWithMiddleware,
     content_files: &Vec<ContentFile>,
     content_dir: PathBuf,
     download_first: bool,
+    no_verify: bool,
 ) -> TResult<()> {
     let concurrency = Arc::new(Semaphore::new(8)); // todo: clap config
     let progress_bar = ProgressBar::hidden();
     progress_bar.set_style(PROGRESS_BAR_TEMPLATE.clone());
     progress_bar.set_message("Verifying");
     progress_bar.set_length((content_files.len() + 1) as u64);
-    progress_bar.set_position(0);
 
     let content_dir = content_dir
         .canonicalize()
-        .expect("failed horribly to canonicalize content dir");
+        .expect("Failed horribly to canonicalize content dir");
 
-    if download_first {
+    if download_first || no_verify {
         download_files(client, content_files, &content_dir).await?;
+    }
+
+    if no_verify {
+        return Ok(());
     }
 
     progress_bar.set_draw_target(ProgressDrawTarget::stderr());
     loop {
+        progress_bar.reset();
+
         let failed_files = Arc::new(tokio::sync::Mutex::new(Vec::new()));
 
         let handles = content_files.into_iter().map(|file| {
@@ -316,9 +316,11 @@ async fn verify_and_download(
         let mut failed_files = failed_files.lock().await;
         if !failed_files.is_empty() {
             println!(
-                "Failed to verify {} files. Retrying download...",
-                failed_files.len()
+                "Failed to verify {} file{}. Retrying download...",
+                failed_files.len(),
+                if failed_files.len() == 1 { "" } else { "s" } // beauty
             );
+
             download_files(client, &failed_files, &content_dir).await?;
             failed_files.clear();
         } else {
