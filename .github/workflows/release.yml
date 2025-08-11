@@ -116,8 +116,6 @@ jobs:
       RUSTC_WRAPPER: "sccache"
 
     steps:
-      - name: Run sccache-cache
-        uses: mozilla-actions/sccache-action@v0.0.9
       - name: enable windows longpaths
         run: |
           git config --global core.longpaths true
@@ -137,6 +135,8 @@ jobs:
       #       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
       #       echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       #     fi
+      - name: Run sccache-cache
+        uses: mozilla-actions/sccache-action@v0.0.9
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest
